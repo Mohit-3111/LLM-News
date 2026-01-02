@@ -1,0 +1,22 @@
+# Copy this file to config.yaml and fill in your API keys
+
+NEWS_API_ORG:
+  API_KEY: "your_newsapi_key_here"
+
+GOOGLE_NEWS:
+  API_KEY: "your_gnews_key_here"
+
+MONGODB:
+  CONNECTION_URL: "mongodb+srv://username:password@cluster.mongodb.net/"
+  DATABASE_NAME: "llm_news"
+  COLLECTION_NAME: "articles"
+
+SCRAPER:
+  USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  REQUEST_TIMEOUT: 10
+  NEWSAPI_COUNT: 5
+  GNEWS_COUNT: 2
+
+SCHEDULER:
+  INTERVAL_MINUTES: 15
+  RUN_ON_START: true
