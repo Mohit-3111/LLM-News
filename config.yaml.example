@@ -20,3 +20,17 @@ SCRAPER:
 SCHEDULER:
   INTERVAL_MINUTES: 15
   RUN_ON_START: true
+
+# LLM Configuration (Groq - Free Tier)
+# Get your free API key at: https://console.groq.com
+LLM:
+  PROVIDER: "groq"
+  API_KEY: "your_groq_api_key_here"
+  MODEL: "llama-3.3-70b-versatile"
+  MAX_TOKENS: 2048
+  TEMPERATURE: 0.7
+
+# Content Curation Settings
+CONTENT_CURATION:
+  BATCH_SIZE: 10
+  DELAY_BETWEEN_CALLS: 2  # seconds, to respect rate limits
