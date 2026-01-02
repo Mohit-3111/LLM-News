@@ -139,3 +139,51 @@ class MongoDBManager:
         except PyMongoError as e:
             logger.error(f"Failed to get article count: {e}")
             return {}
+    
+    def update_article_curated_content(self, article_id: str, curated_data: Dict[str, Any]) -> bool:
+        """
+        Update an article with LLM-generated curated content.
+        
+        Args:
+            article_id: MongoDB ObjectId string
+            curated_data: Dictionary containing:
+                - curated: {summary, rewritten_content, entities, hashtags}
+                - platforms: {website, telegram, instagram}
+                - processed_at: datetime
+                
+        Returns:
+            True if updated successfully, False otherwise
+        """
+        try:
+            from bson import ObjectId
+            
+            update_data = {
+                'status': 'processed',
+                'updatedAt': datetime.utcnow(),
+                **curated_data
+            }
+            
+            result = self.collection.update_one(
+                {'_id': ObjectId(article_id)},
+                {'$set': update_data}
+            )
+            
+            if result.modified_count > 0:
+                logger.debug(f"Updated article {article_id} with curated content")
+                return True
+            else:
+                logger.warning(f"No article found with id {article_id}")
+                return False
+                
+        except PyMongoError as e:
+            logger.error(f"Failed to update article with curated content: {e}")
+            return False
+    
+    def get_processed_articles(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get articles with 'processed' status ready for publishing."""
+        try:
+            articles = list(self.collection.find({'status': 'processed'}).limit(limit))
+            return articles
+        except PyMongoError as e:
+            logger.error(f"Failed to fetch processed articles: {e}")
+            return []

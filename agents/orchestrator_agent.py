@@ -17,6 +17,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.scraper_agent import ScraperAgent
+from agents.content_curation_agent import ContentCurationAgent
 from database.mongodb import MongoDBManager
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ class OrchestratorAgent:
         # Pipeline stage handlers (will be populated as agents are added)
         self.pipeline_stages = {
             "scrape": self._run_scraper,
-            # "curate": self._run_curator,      # Future
+            "curate": self._run_curator,
             # "generate_image": self._run_image_gen,  # Future
             # "publish": self._run_publisher,   # Future
         }
@@ -88,6 +89,24 @@ class OrchestratorAgent:
         except Exception as e:
             logger.error(f"Pipeline Stage: SCRAPE - Failed: {e}")
             return {"stage": "scrape", "success": False, "error": str(e)}
+    
+    def _run_curator(self) -> Dict[str, Any]:
+        """Execute the content curation agent."""
+        logger.info("Pipeline Stage: CURATE - Starting")
+        try:
+            curation_config = self.config.get("CONTENT_CURATION", {})
+            batch_size = curation_config.get("BATCH_SIZE", 10)
+            
+            agent = ContentCurationAgent(config_path=self.config_path)
+            result = agent.run(batch_size=batch_size)
+            agent.close()
+            
+            logger.info(f"Pipeline Stage: CURATE - Complete. "
+                       f"Processed {result['processed']}, Failed {result['failed']}")
+            return {"stage": "curate", "success": True, "result": result}
+        except Exception as e:
+            logger.error(f"Pipeline Stage: CURATE - Failed: {e}")
+            return {"stage": "curate", "success": False, "error": str(e)}
     
     def run_pipeline(self) -> Dict[str, Any]:
         """

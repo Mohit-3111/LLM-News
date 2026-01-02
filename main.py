@@ -102,7 +102,7 @@ def run_scheduler(args):
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Multiagent LLM News System"
+        description="Multiagent LLM News System - Automated News Pipeline"
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -115,12 +115,19 @@ def main():
         help="Path to configuration file"
     )
     
-    # Scheduler mode arguments
+    # Mode selection
     parser.add_argument(
-        "--scheduler",
+        "--run-once",
         action="store_true",
-        help="Run in scheduled mode (continuous 15-min cycles)"
+        help="Run full pipeline once and exit (default: continuous scheduled mode)"
     )
+    parser.add_argument(
+        "--scrape-only",
+        action="store_true",
+        help="Run only the scraper agent once (legacy mode)"
+    )
+    
+    # Scheduler settings
     parser.add_argument(
         "--interval",
         type=int,
@@ -133,7 +140,7 @@ def main():
         help="Don't run pipeline immediately on scheduler start"
     )
     
-    # Single run mode arguments
+    # Article counts
     parser.add_argument(
         "--newsapi-count",
         type=int,
@@ -150,10 +157,49 @@ def main():
     args = parser.parse_args()
     setup_logging(args.verbose)
     
-    if args.scheduler:
-        return run_scheduler(args)
-    else:
+    # Determine mode
+    if args.scrape_only:
+        # Legacy: only scraper
         return run_once(args)
+    elif args.run_once:
+        # Run full pipeline once
+        return run_pipeline_once(args)
+    else:
+        # Default: continuous scheduled mode
+        return run_scheduler(args)
+
+
+def run_pipeline_once(args):
+    """Run the full pipeline (all agents) once and exit."""
+    from agents.orchestrator_agent import OrchestratorAgent
+    
+    logger = logging.getLogger(__name__)
+    logger.info("Starting Multiagent LLM News - Single Pipeline Run")
+    
+    try:
+        orchestrator = OrchestratorAgent(config_path=args.config)
+        
+        print("\n" + "="*60)
+        print("  FULL PIPELINE - Single Run Mode")
+        print("="*60)
+        print("  Running: Scraper → Content Curation")
+        print("="*60 + "\n")
+        
+        result = orchestrator.run_pipeline()
+        
+        print("\n" + "="*60)
+        print("  PIPELINE COMPLETE")
+        print("="*60)
+        print(f"  Success: {result['success']}")
+        print(f"  Duration: {result['duration_seconds']:.1f}s")
+        print("="*60 + "\n")
+        
+        return 0 if result['success'] else 1
+        
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        print(f"\nERROR: {e}")
+        return 1
 
 
 if __name__ == "__main__":
