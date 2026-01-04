@@ -6,9 +6,11 @@ An intelligent, automated news curation system powered by multiple specialized A
 
 - **Multi-Source News Aggregation**: Fetches trending articles from NewsAPI and GNews
 - **Diverse Coverage**: Ensures articles from different news agencies (BBC, CNN, TechCrunch, etc.)
+- **LLM Content Curation**: Summarizes, rewrites, and extracts key entities using Groq LLM
+- **AI Image Generation**: Creates unique images for each article using Pollinations.ai
+- **Multi-Platform Content**: Tailored content for Website, Telegram, and Instagram
 - **Automated Scheduling**: Runs pipeline every 15 minutes (configurable)
 - **MongoDB Storage**: Persistent storage with duplicate detection
-- **Extensible Pipeline**: Designed for future LLM summarization, image generation, and multi-platform publishing
 
 ## 🏗️ Architecture
 
@@ -18,28 +20,31 @@ An intelligent, automated news curation system powered by multiple specialized A
 │              (15-minute scheduled pipeline)                  │
 └─────────────────────────────────────────────────────────────┘
                               │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌───────────────┐    ┌───────────────┐
+│ Scraper Agent │───▶│ Curation Agent│───▶│ Image Agent   │
+│  (NewsAPI +   │    │   (Groq LLM)  │    │(Pollinations) │
+│    GNews)     │    │               │    │               │
+└───────────────┘    └───────────────┘    └───────────────┘
+        │                     │                     │
+        └─────────────────────┼─────────────────────┘
                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Scraper Agent                            │
-│         (NewsAPI + GNews → MongoDB)                          │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      MongoDB                                 │
-│              (Articles Collection)                           │
-└─────────────────────────────────────────────────────────────┘
+              ┌───────────────────────────┐
+              │         MongoDB           │
+              │   (Articles Collection)   │
+              └───────────────────────────┘
 ```
 
 ### Agents
 
 | Agent | Status | Description |
 |-------|--------|-------------|
-| **Scraper Agent** | ✅ Complete | Fetches news from NewsAPI & GNews APIs |
+| **Scraper Agent** | ✅ Complete | Fetches trending news from NewsAPI & GNews APIs |
 | **Orchestrator Agent** | ✅ Complete | Schedules and coordinates pipeline execution |
-| **Curation Agent** | 🔜 Planned | LLM-powered summarization and rewriting |
-| **Image Agent** | 🔜 Planned | AI image generation for articles |
-| **Publisher Agent** | 🔜 Planned | Multi-platform publishing (Web, Telegram, Instagram) |
+| **Curation Agent** | ✅ Complete | LLM-powered summarization, rewriting, and entity extraction |
+| **Image Agent** | ✅ Complete | AI image generation using Pollinations.ai (turbo model) |
+| **Publisher Agent** | 🔜 Planned | Multi-platform publishing (Website, Telegram, Instagram) |
 
 ## 🚀 Quick Start
 
@@ -50,13 +55,14 @@ An intelligent, automated news curation system powered by multiple specialized A
 - API Keys:
   - [NewsAPI](https://newsapi.org/) (free tier available)
   - [GNews](https://gnews.io/) (free tier available)
+  - [Groq](https://console.groq.com/) (free tier for LLM - required for curation)
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/multiagent-llm-news.git
-   cd multiagent-llm-news
+   git clone https://github.com/Mohit-3111/LLM-News.git
+   cd LLM-News
    ```
 
 2. **Create virtual environment**
@@ -87,6 +93,10 @@ An intelligent, automated news curation system powered by multiple specialized A
    
    GOOGLE_NEWS:
      API_KEY: "your_gnews_key"
+   
+   LLM:
+     API_KEY: "your_groq_api_key"
+     MODEL: "llama-3.3-70b-versatile"
    
    MONGODB:
      CONNECTION_URL: "mongodb+srv://..."
@@ -123,16 +133,19 @@ python main.py --scheduler --interval 5
 
 ```
 multiagent-llm-news/
-├── main.py                    # Entry point
-├── config.yaml.example        # Configuration template
-├── requirements.txt           # Python dependencies
+├── main.py                        # Entry point
+├── config.yaml.example            # Configuration template
+├── requirements.txt               # Python dependencies
 ├── agents/
-│   ├── scraper_agent.py       # News fetching agent
-│   └── orchestrator_agent.py  # Pipeline scheduler
+│   ├── scraper_agent.py           # News fetching agent
+│   ├── orchestrator_agent.py      # Pipeline scheduler
+│   ├── content_curation_agent.py  # LLM summarization & rewriting
+│   └── image_creation_agent.py    # AI image generation
 ├── database/
-│   └── mongodb.py             # MongoDB connection manager
-└── utils/
-    └── helpers.py             # Utility functions
+│   └── mongodb.py                 # MongoDB connection manager
+├── utils/
+│   └── helpers.py                 # Utility functions
+└── generated_images/              # Output directory for AI images
 ```
 
 ## ⚙️ Configuration
@@ -146,18 +159,29 @@ NEWS_API_ORG:
 GOOGLE_NEWS:
   API_KEY: "your_key"
 
+LLM:
+  API_KEY: "your_groq_api_key"
+  MODEL: "llama-3.3-70b-versatile"
+  TEMPERATURE: 0.7
+  MAX_TOKENS: 2000
+
 MONGODB:
   CONNECTION_URL: "mongodb+srv://..."
   DATABASE_NAME: "llm_news"
   COLLECTION_NAME: "articles"
 
 SCRAPER:
-  NEWSAPI_COUNT: 5      # Articles from NewsAPI
-  GNEWS_COUNT: 2        # Articles from GNews
+  NEWSAPI_COUNT: 5
+  GNEWS_COUNT: 2
+
+IMAGE_GENERATION:
+  ENABLED: true
+  OUTPUT_DIR: "generated_images"
+  BATCH_SIZE: 10
 
 SCHEDULER:
-  INTERVAL_MINUTES: 15  # Pipeline interval
-  RUN_ON_START: true    # Run immediately on start
+  INTERVAL_MINUTES: 15
+  RUN_ON_START: true
 ```
 
 ## 📊 Article Schema
@@ -171,10 +195,24 @@ Articles are stored in MongoDB with this structure:
   "title": "Article headline",
   "description": "Brief description",
   "url": "https://...",
-  "imageUrl": "https://...",
-  "publishedAt": "2024-01-02T10:00:00Z",
   "content": "Full article text...",
-  "status": "raw",
+  "status": "processed",
+  "curated": {
+    "summary": "2-3 sentence summary",
+    "rewritten_content": "Full rewritten article",
+    "entities": { "people": [], "organizations": [], "locations": [] },
+    "hashtags": ["#news", "#technology"]
+  },
+  "platforms": {
+    "website": { "full_article": "..." },
+    "telegram": { "teaser": "...", "link": "..." },
+    "instagram": { "caption": "...", "hashtags": [] }
+  },
+  "images": {
+    "website": { "path": "generated_images/.../website_01.jpg" },
+    "telegram": { "path": "generated_images/.../telegram_01.jpg" },
+    "instagram": [{ "path": "..." }]
+  },
   "createdAt": "2024-01-02T10:15:00Z"
 }
 ```
@@ -183,8 +221,8 @@ Articles are stored in MongoDB with this structure:
 
 - [x] Scraper Agent (NewsAPI + GNews)
 - [x] Orchestrator Agent (APScheduler)
-- [ ] Content Curation Agent (LLM summarization)
-- [ ] Image Generation Agent
+- [x] Content Curation Agent (Groq LLM - summarization, rewriting, entity extraction)
+- [x] Image Generation Agent (Pollinations.ai - turbo model)
 - [ ] Multi-Platform Publisher (Website, Telegram, Instagram)
 - [ ] Web Dashboard
 

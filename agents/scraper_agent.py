@@ -65,7 +65,7 @@ class ScraperAgent:
     
     def fetch_newsapi(self, source: str = "bbc-news") -> List[Dict[str, Any]]:
         """
-        Fetch articles from NewsAPI.
+        Fetch articles from NewsAPI by source.
         
         Args:
             source: News source identifier (default: bbc-news)
@@ -103,6 +103,56 @@ class ScraperAgent:
             return articles
         except Exception as e:
             logger.error(f"Unexpected error fetching from NewsAPI: {e}")
+            return articles
+    
+    def fetch_trending_newsapi(self, category: str = "technology") -> List[Dict[str, Any]]:
+        """
+        Fetch trending/latest articles from NewsAPI by category.
+        This gets the most current top headlines across all sources.
+        
+        Args:
+            category: News category (business, entertainment, general, health, 
+                     science, sports, technology)
+            
+        Returns:
+            List of article dictionaries
+        """
+        articles = []
+        url = "https://newsapi.org/v2/top-headlines"
+        params = {
+            "category": category,
+            "language": "en",
+            "pageSize": 20,  # Get more to have diversity options
+            "country": "us"  # Top headlines require country or source
+        }
+        headers = {"Authorization": f"Bearer {self.newsapi_key}"}
+        
+        try:
+            logger.info(f"Fetching trending articles from NewsAPI (category: {category})")
+            response = requests.get(url, params=params, headers=headers, timeout=self.timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("status") != "ok":
+                logger.error(f"NewsAPI error: {data.get('message', 'Unknown error')}")
+                return articles
+            
+            for item in data.get("articles", []):
+                article = self._process_article(item, "NewsAPI")
+                if article:
+                    articles.append(article)
+            
+            logger.info(f"Fetched {len(articles)} trending articles from NewsAPI ({category})")
+            return articles
+            
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"NewsAPI HTTP error: {e}")
+            return articles
+        except requests.exceptions.RequestException as e:
+            logger.error(f"NewsAPI request error: {e}")
+            return articles
+        except Exception as e:
+            logger.error(f"Unexpected error fetching trending from NewsAPI: {e}")
             return articles
     
     def fetch_gnews(self, category: str = "general", max_articles: int = 10) -> List[Dict[str, Any]]:
@@ -212,13 +262,14 @@ class ScraperAgent:
         logger.info(f"Selected {len(diverse_articles)} articles from {len(seen_sources)} unique sources")
         return diverse_articles
     
-    def run(self, newsapi_count: int = 5, gnews_count: int = 2) -> Dict[str, Any]:
+    def run(self, newsapi_count: int = 5, gnews_count: int = 2, use_trending: bool = True) -> Dict[str, Any]:
         """
         Run the scraper agent - fetch trending news from diverse sources.
         
         Args:
             newsapi_count: Number of articles from NewsAPI (default: 5)
             gnews_count: Number of articles from GNews (default: 2)
+            use_trending: If True, fetch trending news by category (more current)
             
         Returns:
             Summary of the scraping operation
@@ -235,39 +286,56 @@ class ScraperAgent:
             "errors": 0
         }
         
-        # Diverse NewsAPI sources to fetch from
-        newsapi_sources = [
-            "bbc-news",
-            "cnn", 
-            "reuters",
-            "the-verge",
-            "techcrunch",
-            "abc-news",
-            "associated-press",
-            "bloomberg"
-        ]
-        
-        # Fetch from NewsAPI sources first (5 articles from 5 different sources)
         seen_sources = set()
-        for source in newsapi_sources:
-            if len(newsapi_articles) >= newsapi_count:
-                break
-            try:
-                articles = self.fetch_newsapi(source)
-                if articles:
-                    # Take first article from each source
-                    article = articles[0]
-                    source_name = article.get("source", "").lower()
-                    if source_name not in seen_sources:
-                        seen_sources.add(source_name)
-                        newsapi_articles.append(article)
-                        summary["sources"][f"newsapi_{source}"] = 1
-                        logger.info(f"Added 1 article from NewsAPI: {article.get('source')}")
-            except Exception as e:
-                logger.error(f"Error fetching from NewsAPI ({source}): {e}")
-                summary["sources"][f"newsapi_{source}"] = 0
         
-        logger.info(f"NewsAPI: Got {len(newsapi_articles)} articles from {len(seen_sources)} unique sources")
+        # Strategy 1: Fetch trending news by category (more current/latest)
+        if use_trending:
+            trending_categories = ["technology", "business", "science", "general"]
+            
+            for category in trending_categories:
+                if len(newsapi_articles) >= newsapi_count:
+                    break
+                try:
+                    articles = self.fetch_trending_newsapi(category)
+                    for article in articles:
+                        if len(newsapi_articles) >= newsapi_count:
+                            break
+                        source_name = article.get("source", "").lower()
+                        if source_name and source_name not in seen_sources:
+                            seen_sources.add(source_name)
+                            newsapi_articles.append(article)
+                            summary["sources"][f"newsapi_{category}"] = summary["sources"].get(f"newsapi_{category}", 0) + 1
+                            logger.info(f"Added trending article from {article.get('source')}")
+                except Exception as e:
+                    logger.error(f"Error fetching trending from NewsAPI ({category}): {e}")
+            
+            logger.info(f"NewsAPI trending: Got {len(newsapi_articles)} articles from {len(seen_sources)} unique sources")
+        
+        # Strategy 2: Fallback to source-based fetching if needed
+        if len(newsapi_articles) < newsapi_count:
+            newsapi_sources = [
+                "bbc-news", "cnn", "reuters", "the-verge",
+                "techcrunch", "abc-news", "associated-press", "bloomberg"
+            ]
+            
+            for source in newsapi_sources:
+                if len(newsapi_articles) >= newsapi_count:
+                    break
+                try:
+                    articles = self.fetch_newsapi(source)
+                    if articles:
+                        article = articles[0]
+                        source_name = article.get("source", "").lower()
+                        if source_name not in seen_sources:
+                            seen_sources.add(source_name)
+                            newsapi_articles.append(article)
+                            summary["sources"][f"newsapi_{source}"] = 1
+                            logger.info(f"Added 1 article from NewsAPI: {article.get('source')}")
+                except Exception as e:
+                    logger.error(f"Error fetching from NewsAPI ({source}): {e}")
+                    summary["sources"][f"newsapi_{source}"] = 0
+            
+            logger.info(f"NewsAPI: Got {len(newsapi_articles)} articles from {len(seen_sources)} unique sources")
         
         # Fetch from GNews (2 articles from different sources)
         try:

@@ -34,3 +34,22 @@ LLM:
 CONTENT_CURATION:
   BATCH_SIZE: 10
   DELAY_BETWEEN_CALLS: 2  # seconds, to respect rate limits
+
+# Image Generation Settings (Pollinations.ai - Free, Unlimited)
+IMAGE_GENERATION:
+  ENABLED: true
+  OUTPUT_DIR: "generated_images"
+  BATCH_SIZE: 10
+  DELAY_BETWEEN_CALLS: 1  # seconds, be nice to the API
+  
+  # Platform-specific dimensions
+  WEBSITE:
+    WIDTH: 1280
+    HEIGHT: 720
+  TELEGRAM:
+    WIDTH: 512
+    HEIGHT: 512
+  INSTAGRAM:
+    WIDTH: 1080
+    HEIGHT: 1350
+

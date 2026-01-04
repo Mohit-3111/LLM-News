@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agents.scraper_agent import ScraperAgent
 from agents.content_curation_agent import ContentCurationAgent
+from agents.image_creation_agent import ImageCreationAgent
 from database.mongodb import MongoDBManager
 
 logger = logging.getLogger(__name__)
@@ -29,8 +30,8 @@ class OrchestratorAgent:
     
     Pipeline stages:
     1. Scrape - Fetch news from APIs
-    2. Curate - LLM summarization (future)
-    3. Generate Image - Create visuals (future)
+    2. Curate - LLM summarization and rewriting
+    3. Generate Image - Create AI visuals via Pollinations.ai
     4. Publish - Post to platforms (future)
     """
     
@@ -56,7 +57,7 @@ class OrchestratorAgent:
         self.pipeline_stages = {
             "scrape": self._run_scraper,
             "curate": self._run_curator,
-            # "generate_image": self._run_image_gen,  # Future
+            "generate_image": self._run_image_generator,
             # "publish": self._run_publisher,   # Future
         }
         
@@ -107,6 +108,30 @@ class OrchestratorAgent:
         except Exception as e:
             logger.error(f"Pipeline Stage: CURATE - Failed: {e}")
             return {"stage": "curate", "success": False, "error": str(e)}
+    
+    def _run_image_generator(self) -> Dict[str, Any]:
+        """Execute the image creation agent."""
+        logger.info("Pipeline Stage: GENERATE_IMAGE - Starting")
+        try:
+            img_config = self.config.get("IMAGE_GENERATION", {})
+            
+            # Check if image generation is enabled
+            if not img_config.get("ENABLED", True):
+                logger.info("Pipeline Stage: GENERATE_IMAGE - Disabled in config")
+                return {"stage": "generate_image", "success": True, "result": {"skipped": True}}
+            
+            batch_size = img_config.get("BATCH_SIZE", 10)
+            
+            agent = ImageCreationAgent(config_path=self.config_path)
+            result = agent.run(batch_size=batch_size)
+            agent.close()
+            
+            logger.info(f"Pipeline Stage: GENERATE_IMAGE - Complete. "
+                       f"Processed {result['processed']}, Failed {result['failed']}")
+            return {"stage": "generate_image", "success": True, "result": result}
+        except Exception as e:
+            logger.error(f"Pipeline Stage: GENERATE_IMAGE - Failed: {e}")
+            return {"stage": "generate_image", "success": False, "error": str(e)}
     
     def run_pipeline(self) -> Dict[str, Any]:
         """
