@@ -40,3 +40,42 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Generated Images (large files, not needed in repo)
+generated_images/
+
+# ===================
+# Website (Next.js)
+# ===================
+
+# Dependencies
+website/node_modules/
+
+# Next.js build output
+website/.next/
+website/out/
+
+# Production build
+website/build/
+
+# Debug logs
+website/npm-debug.log*
+website/yarn-debug.log*
+website/yarn-error.log*
+
+# Environment files (if any)
+website/.env
+website/.env.local
+website/.env.development.local
+website/.env.test.local
+website/.env.production.local
+
+# Vercel
+website/.vercel
+
+# TypeScript
+website/*.tsbuildinfo
+website/next-env.d.ts
+
+# ESLint cache
+website/.eslintcache

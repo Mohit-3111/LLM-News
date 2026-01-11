@@ -1,6 +1,6 @@
 # 🗞️ Multiagent LLM News
 
-An intelligent, automated news curation system powered by multiple specialized AI agents. The system automatically gathers news from multiple sources, processes them, and prepares content for multi-platform publishing.
+An intelligent, automated news curation system powered by multiple specialized AI agents. The system automatically gathers news from multiple sources, processes them, generates AI images, and publishes to a modern news website.
 
 ## ✨ Features
 
@@ -9,6 +9,7 @@ An intelligent, automated news curation system powered by multiple specialized A
 - **LLM Content Curation**: Summarizes, rewrites, and extracts key entities using Groq LLM
 - **AI Image Generation**: Creates unique images for each article using Pollinations.ai
 - **Multi-Platform Content**: Tailored content for Website, Telegram, and Instagram
+- **Modern News Website**: Beautiful Next.js website with dark mode and glassmorphism design
 - **Automated Scheduling**: Runs pipeline every 15 minutes (configurable)
 - **MongoDB Storage**: Persistent storage with duplicate detection
 
@@ -34,6 +35,12 @@ An intelligent, automated news curation system powered by multiple specialized A
               │         MongoDB           │
               │   (Articles Collection)   │
               └───────────────────────────┘
+                              │
+                              ▼
+              ┌───────────────────────────┐
+              │     LLM Daily Website     │
+              │       (Next.js 14)        │
+              └───────────────────────────┘
 ```
 
 ### Agents
@@ -44,13 +51,51 @@ An intelligent, automated news curation system powered by multiple specialized A
 | **Orchestrator Agent** | ✅ Complete | Schedules and coordinates pipeline execution |
 | **Curation Agent** | ✅ Complete | LLM-powered summarization, rewriting, and entity extraction |
 | **Image Agent** | ✅ Complete | AI image generation using Pollinations.ai (turbo model) |
-| **Publisher Agent** | 🔜 Planned | Multi-platform publishing (Website, Telegram, Instagram) |
+| **Publisher Agent** | ✅ Complete | Next.js website for publishing articles |
+
+## 🌐 Website (LLM Daily)
+
+The project includes a modern news website built with **Next.js 14**:
+
+### Features
+- 🌙 **Dark Mode** with purple/indigo gradient accents
+- ✨ **Glassmorphism UI** with backdrop blur effects
+- 📱 **Fully Responsive** design for all devices
+- ⚡ **Server-Side Rendering** for SEO optimization
+- 🖼️ **AI-Generated Images** displayed from local storage
+- 🔄 **Auto-refresh** every 5 minutes for fresh content
+
+### Running the Website
+
+```bash
+cd website
+npm install
+npm run dev
+```
+
+Visit: **http://localhost:3000**
+
+### Website Pages
+
+| Page | Route | Description |
+|------|-------|-------------|
+| Homepage | `/` | Hero section with featured article + news grid |
+| Article | `/article/[id]` | Full article with image and content |
+| About | `/about` | Information about the platform |
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/articles` | GET | Fetch articles with pagination |
+| `/api/publish` | POST | Mark article as published |
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Python 3.9+
+- Node.js 18+ (for website)
 - MongoDB Atlas account (or local MongoDB)
 - API Keys:
   - [NewsAPI](https://newsapi.org/) (free tier available)
@@ -76,12 +121,19 @@ An intelligent, automated news curation system powered by multiple specialized A
    source venv/bin/activate
    ```
 
-3. **Install dependencies**
+3. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Configure API keys**
+4. **Install Website dependencies**
+   ```bash
+   cd website
+   npm install
+   cd ..
+   ```
+
+5. **Configure API keys**
    ```bash
    cp config.yaml.example config.yaml
    ```
@@ -104,7 +156,7 @@ An intelligent, automated news curation system powered by multiple specialized A
 
 ### Usage
 
-**Single Run** - Fetch articles once:
+**Single Run** - Fetch and process articles once:
 ```bash
 python main.py
 ```
@@ -114,9 +166,10 @@ python main.py
 python main.py --scheduler
 ```
 
-**Custom Interval** - Run every N minutes:
+**Run Website** - Start the news website:
 ```bash
-python main.py --scheduler --interval 5
+cd website
+npm run dev
 ```
 
 **Options**:
@@ -145,7 +198,14 @@ multiagent-llm-news/
 │   └── mongodb.py                 # MongoDB connection manager
 ├── utils/
 │   └── helpers.py                 # Utility functions
-└── generated_images/              # Output directory for AI images
+├── generated_images/              # Output directory for AI images
+└── website/                       # Next.js news website
+    ├── src/
+    │   ├── app/                   # Next.js App Router pages
+    │   ├── components/            # React components
+    │   └── lib/                   # MongoDB utilities
+    ├── package.json
+    └── next.config.mjs
 ```
 
 ## ⚙️ Configuration
@@ -217,14 +277,30 @@ Articles are stored in MongoDB with this structure:
 }
 ```
 
+## 🛠️ Tech Stack
+
+### Backend
+- **Python 3.9+** - Core language
+- **Groq LLM** - Content curation (Llama 3.3 70B)
+- **Pollinations.ai** - AI image generation
+- **MongoDB** - Database storage
+- **APScheduler** - Task scheduling
+
+### Website
+- **Next.js 14** - React framework with App Router
+- **Vanilla CSS** - Custom design system
+- **MongoDB Driver** - Direct database connection
+
 ## 🛣️ Roadmap
 
 - [x] Scraper Agent (NewsAPI + GNews)
 - [x] Orchestrator Agent (APScheduler)
 - [x] Content Curation Agent (Groq LLM - summarization, rewriting, entity extraction)
 - [x] Image Generation Agent (Pollinations.ai - turbo model)
-- [ ] Multi-Platform Publisher (Website, Telegram, Instagram)
-- [ ] Web Dashboard
+- [x] News Website (Next.js with modern UI)
+- [ ] Telegram Bot Integration
+- [ ] Instagram Auto-Posting
+- [ ] Web Dashboard for Analytics
 
 ## 📄 License
 
