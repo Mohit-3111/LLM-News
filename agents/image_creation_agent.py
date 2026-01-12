@@ -80,6 +80,28 @@ class ImageCreationAgent:
             }
         }
         
+        # ImageKit cloud storage settings
+        imagekit_config = self.config.get('IMAGEKIT', {})
+        self.imagekit_private_key = imagekit_config.get('PRIVATE_KEY', '')
+        
+        if not self.imagekit_private_key or self.imagekit_private_key == 'your_private_key_here':
+            logger.warning("ImageKit not configured - images will only be stored locally")
+            self.imagekit_enabled = False
+            self.imagekit_client = None
+        else:
+            try:
+                from imagekitio import ImageKit
+                # ImageKit SDK v5 only requires private_key
+                self.imagekit_client = ImageKit(
+                    private_key=self.imagekit_private_key
+                )
+                self.imagekit_enabled = True
+                logger.info("ImageKit cloud storage enabled")
+            except Exception as e:
+                logger.error(f"Failed to initialize ImageKit: {e}")
+                self.imagekit_enabled = False
+                self.imagekit_client = None
+        
         # Create output directory
         self._ensure_output_dir()
         
@@ -120,6 +142,132 @@ class ImageCreationAgent:
         """Create output directory if it doesn't exist."""
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
         logger.info(f"Image output directory: {self.output_dir}")
+    
+    def _upload_to_imagekit(self, image_path: str, name: str = None) -> Optional[str]:
+        """
+        Upload an image to ImageKit cloud storage.
+        
+        Args:
+            image_path: Path to the local image file
+            name: Optional name for the image
+            
+        Returns:
+            ImageKit URL if successful, None otherwise
+        """
+        if not self.imagekit_enabled or not self.imagekit_client:
+            logger.warning("ImageKit not enabled, skipping upload")
+            return None
+        
+        try:
+            # Read the image file as binary
+            with open(image_path, 'rb') as f:
+                file_data = f.read()
+            
+            import base64
+            file_base64 = base64.b64encode(file_data).decode('utf-8')
+            
+            # Generate a unique filename with extension
+            file_name = (name or os.path.basename(image_path))
+            if not file_name.endswith('.jpg'):
+                file_name += '.jpg'
+            
+            logger.debug(f"Uploading to ImageKit: {file_name}")
+            
+            # Upload to ImageKit using SDK v5 (files.upload)
+            result = self.imagekit_client.files.upload(
+                file=file_base64,
+                file_name=file_name,
+                folder='/llm_news/',
+                use_unique_file_name=True
+            )
+            
+            # Handle response - could be dict or object
+            if result:
+                # Try different ways to access the URL
+                url = None
+                if hasattr(result, 'url'):
+                    url = result.url
+                elif isinstance(result, dict) and 'url' in result:
+                    url = result['url']
+                elif hasattr(result, 'response') and result.response:
+                    resp = result.response
+                    if hasattr(resp, 'url'):
+                        url = resp.url
+                    elif isinstance(resp, dict) and 'url' in resp:
+                        url = resp['url']
+                
+                if url:
+                    logger.info(f"Uploaded to ImageKit: {url}")
+                    return url
+                else:
+                    logger.error(f"ImageKit upload response missing URL: {result}")
+            else:
+                logger.error(f"ImageKit upload returned empty result")
+            
+        except Exception as e:
+            logger.error(f"Failed to upload to ImageKit: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+        
+        return None
+    
+    def _upload_bytes_to_imagekit(self, image_bytes: bytes, name: str) -> Optional[str]:
+        """
+        Upload image bytes directly to ImageKit cloud storage.
+        
+        Args:
+            image_bytes: Raw image bytes
+            name: Name for the image file
+            
+        Returns:
+            ImageKit URL if successful, None otherwise
+        """
+        if not self.imagekit_enabled or not self.imagekit_client:
+            logger.warning("ImageKit not enabled, skipping upload")
+            return None
+        
+        try:
+            # Ensure filename has extension
+            file_name = name if name.endswith('.jpg') else f"{name}.jpg"
+            
+            logger.debug(f"Uploading to ImageKit: {file_name}")
+            
+            # Upload to ImageKit using SDK v5 (files.upload) - needs raw bytes
+            result = self.imagekit_client.files.upload(
+                file=image_bytes,  # SDK v5 accepts raw bytes
+                file_name=file_name,
+                folder='/llm_news/',
+                use_unique_file_name=True
+            )
+            
+            # Handle response - could be dict or object
+            if result:
+                url = None
+                if hasattr(result, 'url'):
+                    url = result.url
+                elif isinstance(result, dict) and 'url' in result:
+                    url = result['url']
+                elif hasattr(result, 'response') and result.response:
+                    resp = result.response
+                    if hasattr(resp, 'url'):
+                        url = resp.url
+                    elif isinstance(resp, dict) and 'url' in resp:
+                        url = resp['url']
+                
+                if url:
+                    logger.info(f"Uploaded to ImageKit: {url}")
+                    return url
+                else:
+                    logger.error(f"ImageKit upload response missing URL: {result}")
+            else:
+                logger.error(f"ImageKit upload returned empty result")
+            
+        except Exception as e:
+            logger.error(f"Failed to upload to ImageKit: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+        
+        return None
     
     def _call_llm(self, prompt: str, system_prompt: str = None, max_tokens: int = 500) -> str:
         """
@@ -269,20 +417,20 @@ PROMPT_3: [realistic photo description]"""
         return hashlib.md5(article_id.encode()).hexdigest()[:8]
     
     def _download_image(self, prompt: str, width: int, height: int, 
-                        output_path: str, seed: int = None, max_retries: int = 3) -> bool:
+                        image_name: str, seed: int = None, max_retries: int = 3) -> Optional[str]:
         """
-        Download an image from Pollinations.ai API with retry logic.
+        Download an image from Pollinations.ai API and upload to ImageKit.
         
         Args:
             prompt: Image generation prompt
             width: Image width in pixels
             height: Image height in pixels
-            output_path: Path to save the image
+            image_name: Name for the image (used in ImageKit)
             seed: Optional seed for reproducibility
             max_retries: Maximum number of retry attempts
             
         Returns:
-            True if successful, False otherwise
+            ImageKit URL if successful, None otherwise
         """
         # Models to try in order of preference - turbo is more stable, flux for quality
         models_to_try = ['turbo', 'flux', 'seedream']
@@ -311,10 +459,14 @@ PROMPT_3: [realistic photo description]"""
                     if response.status_code == 200:
                         # Verify we got actual image data
                         if len(response.content) > 1000:  # Valid images are larger
-                            with open(output_path, 'wb') as f:
-                                f.write(response.content)
-                            logger.info(f"Saved image (model={model}): {output_path}")
-                            return True
+                            logger.info(f"Generated image (model={model}): {image_name}")
+                            
+                            # Upload directly to ImageKit
+                            imagekit_url = self._upload_bytes_to_imagekit(response.content, image_name)
+                            if imagekit_url:
+                                return imagekit_url
+                            else:
+                                logger.warning("ImageKit upload failed, retrying...")
                         else:
                             logger.warning(f"Response too small, retrying...")
                     elif response.status_code in [502, 503, 504]:
@@ -340,30 +492,26 @@ PROMPT_3: [realistic photo description]"""
             logger.warning(f"Model {model} failed, trying next model...")
         
         logger.error(f"All models and retries exhausted for image generation")
-        return False
+        return None
     
     def _generate_images_for_article(self, article: Dict, prompts: List[str]) -> Dict[str, Any]:
         """
-        Generate all images for an article.
+        Generate all images for an article and upload directly to ImageKit.
         
-        Optimized to generate only 3 unique images:
-        - Image 1: Website + Instagram (different dimensions)
-        - Image 2: Telegram (reused for Instagram)
-        - Image 3: Instagram only
+        Generates 3 unique images:
+        - Image 1: Website + Instagram (landscape)
+        - Image 2: Telegram (square)
+        - Image 3: Instagram (portrait)
         
         Args:
             article: Article dictionary
             prompts: List of 3 image prompts
             
         Returns:
-            Dictionary with image metadata for each platform
+            Dictionary with image metadata for each platform (URLs only, no local paths)
         """
         article_id = str(article.get('_id', ''))
         article_hash = self._generate_article_id_hash(article_id)
-        
-        # Create article-specific directory
-        article_dir = os.path.join(self.output_dir, article_hash)
-        Path(article_dir).mkdir(parents=True, exist_ok=True)
         
         images = {
             'website': None,
@@ -376,24 +524,23 @@ PROMPT_3: [realistic photo description]"""
         
         # Generate Image 1: Website (landscape) - will also be used for Instagram
         logger.info("Generating image 1 (website)...")
-        img1_path_web = os.path.join(article_dir, "website_01.jpg")
         
-        success = self._download_image(
+        img1_url = self._download_image(
             prompt=prompts[0],
             width=self.dimensions['website']['width'],
             height=self.dimensions['website']['height'],
-            output_path=img1_path_web,
+            image_name=f"{article_hash}_website",
             seed=base_seed
         )
-        if success:
+        if img1_url:
             images['website'] = {
-                'path': img1_path_web,
+                'url': img1_url,  # ImageKit cloud URL
                 'prompt': prompts[0],
                 'dimensions': self.dimensions['website']
             }
-            # Also add to Instagram (cropped version conceptually)
+            # Also add to Instagram
             images['instagram'].append({
-                'path': img1_path_web,
+                'url': img1_url,
                 'prompt': prompts[0],
                 'dimensions': self.dimensions['website']
             })
@@ -402,23 +549,22 @@ PROMPT_3: [realistic photo description]"""
         
         # Generate Image 2: Telegram (square) - also for Instagram
         logger.info("Generating image 2 (telegram)...")
-        img2_path_tg = os.path.join(article_dir, "telegram_01.jpg")
         
-        success = self._download_image(
+        img2_url = self._download_image(
             prompt=prompts[1],
             width=self.dimensions['telegram']['width'],
             height=self.dimensions['telegram']['height'],
-            output_path=img2_path_tg,
+            image_name=f"{article_hash}_telegram",
             seed=base_seed + 1
         )
-        if success:
+        if img2_url:
             images['telegram'] = {
-                'path': img2_path_tg,
+                'url': img2_url,  # ImageKit cloud URL
                 'prompt': prompts[1],
                 'dimensions': self.dimensions['telegram']
             }
             images['instagram'].append({
-                'path': img2_path_tg,
+                'url': img2_url,
                 'prompt': prompts[1],
                 'dimensions': self.dimensions['telegram']
             })
@@ -427,18 +573,17 @@ PROMPT_3: [realistic photo description]"""
         
         # Generate Image 3: Instagram portrait
         logger.info("Generating image 3 (instagram)...")
-        img3_path_ig = os.path.join(article_dir, "instagram_01.jpg")
         
-        success = self._download_image(
+        img3_url = self._download_image(
             prompt=prompts[2],
             width=self.dimensions['instagram']['width'],
             height=self.dimensions['instagram']['height'],
-            output_path=img3_path_ig,
+            image_name=f"{article_hash}_instagram",
             seed=base_seed + 2
         )
-        if success:
+        if img3_url:
             images['instagram'].append({
-                'path': img3_path_ig,
+                'url': img3_url,  # ImageKit cloud URL
                 'prompt': prompts[2],
                 'dimensions': self.dimensions['instagram']
             })

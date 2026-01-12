@@ -45,8 +45,10 @@ export default function ArticleCard({ article }) {
     // Get hashtags from curated content
     const hashtags = curated?.hashtags?.slice(0, 3) || [];
 
-    // Get the image path - use website image if available
+    // Get the image URL - prefer ImgBB cloud URL, fallback to local path
+    const imageUrl = images?.website?.url || null;
     const imagePath = images?.website?.path || null;
+    const imageSrc = imageUrl || (imagePath ? (imagePath.startsWith('/') ? imagePath : `/${imagePath}`) : null);
 
     // Format the source name
     const sourceName = source?.name || source || 'Unknown Source';
@@ -57,9 +59,9 @@ export default function ArticleCard({ article }) {
     return (
         <article className="glass-card article-card">
             <Link href={`/article/${_id}`} className="article-card-image">
-                {imagePath ? (
+                {imageSrc ? (
                     <img
-                        src={imagePath.startsWith('/') ? imagePath : `/${imagePath}`}
+                        src={imageSrc}
                         alt={title || 'Article image'}
                         style={{
                             width: '100%',

@@ -35,7 +35,12 @@ export default function HeroSection({ featuredArticle }) {
     } = featuredArticle;
 
     const summary = platforms?.website?.summary || curated?.summary || '';
+
+    // Get the image URL - prefer ImgBB cloud URL, fallback to local path
+    const imageUrl = images?.website?.url || null;
     const imagePath = images?.website?.path || null;
+    const imageSrc = imageUrl || (imagePath ? (imagePath.startsWith('/') ? imagePath : `/${imagePath}`) : null);
+
     const sourceName = source?.name || source || 'Unknown Source';
 
     const displayDate = publishedAt
@@ -66,9 +71,9 @@ export default function HeroSection({ featuredArticle }) {
 
                 <div className="hero-featured animate-fade-in-up">
                     <Link href={`/article/${_id}`} className="hero-featured-image glass-card">
-                        {imagePath ? (
+                        {imageSrc ? (
                             <img
-                                src={imagePath.startsWith('/') ? imagePath : `/${imagePath}`}
+                                src={imageSrc}
                                 alt={title || 'Featured article'}
                                 style={{
                                     width: '100%',

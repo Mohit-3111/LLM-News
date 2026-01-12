@@ -123,7 +123,12 @@ export default async function ArticlePage({ params }) {
     const rawEntities = curated?.entities;
     const hashtags = Array.isArray(rawHashtags) ? rawHashtags : [];
     const entities = Array.isArray(rawEntities) ? rawEntities : [];
+
+    // Get the image URL - prefer ImgBB cloud URL, fallback to local path
+    const imageUrl = images?.website?.url || null;
     const imagePath = images?.website?.path || null;
+    const imageSrc = imageUrl || (imagePath ? (imagePath.startsWith('/') ? imagePath : `/${imagePath}`) : null);
+
     const sourceName = source?.name || source || 'Unknown Source';
     const displayDate = formatDate(publishedAt || createdAt);
     const readingTime = getReadingTime(content);
@@ -132,10 +137,10 @@ export default async function ArticlePage({ params }) {
         <article className="article-page">
             <div className="container">
                 {/* Hero Image */}
-                {imagePath && (
+                {imageSrc && (
                     <div className="article-hero-image animate-fade-in">
                         <img
-                            src={imagePath.startsWith('/') ? imagePath : `/${imagePath}`}
+                            src={imageSrc}
                             alt={title || 'Article image'}
                             style={{
                                 width: '100%',

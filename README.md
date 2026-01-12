@@ -8,6 +8,7 @@ An intelligent, automated news curation system powered by multiple specialized A
 - **Diverse Coverage**: Ensures articles from different news agencies (BBC, CNN, TechCrunch, etc.)
 - **LLM Content Curation**: Summarizes, rewrites, and extracts key entities using Groq LLM
 - **AI Image Generation**: Creates unique images for each article using Pollinations.ai
+- **Cloud Image Storage**: Stores generated images on ImageKit CDN (free tier: 20GB)
 - **Multi-Platform Content**: Tailored content for Website, Telegram, and Instagram
 - **Modern News Website**: Beautiful Next.js website with dark mode and glassmorphism design
 - **Automated Scheduling**: Runs pipeline every 15 minutes (configurable)
@@ -62,7 +63,7 @@ The project includes a modern news website built with **Next.js 14**:
 - ✨ **Glassmorphism UI** with backdrop blur effects
 - 📱 **Fully Responsive** design for all devices
 - ⚡ **Server-Side Rendering** for SEO optimization
-- 🖼️ **AI-Generated Images** displayed from local storage
+- 🖼️ **AI-Generated Images** served from ImageKit CDN
 - 🔄 **Auto-refresh** every 5 minutes for fresh content
 
 ### Running the Website
@@ -101,6 +102,7 @@ Visit: **http://localhost:3000**
   - [NewsAPI](https://newsapi.org/) (free tier available)
   - [GNews](https://gnews.io/) (free tier available)
   - [Groq](https://console.groq.com/) (free tier for LLM - required for curation)
+  - [ImageKit](https://imagekit.io/) (free tier: 20GB storage/bandwidth - for image hosting)
 
 ### Installation
 
@@ -150,6 +152,9 @@ Visit: **http://localhost:3000**
      API_KEY: "your_groq_api_key"
      MODEL: "llama-3.3-70b-versatile"
    
+   IMAGEKIT:
+     PRIVATE_KEY: "private_xxxxxxxxxxxxx"
+   
    MONGODB:
      CONNECTION_URL: "mongodb+srv://..."
    ```
@@ -198,7 +203,6 @@ multiagent-llm-news/
 │   └── mongodb.py                 # MongoDB connection manager
 ├── utils/
 │   └── helpers.py                 # Utility functions
-├── generated_images/              # Output directory for AI images
 └── website/                       # Next.js news website
     ├── src/
     │   ├── app/                   # Next.js App Router pages
@@ -236,8 +240,12 @@ SCRAPER:
 
 IMAGE_GENERATION:
   ENABLED: true
-  OUTPUT_DIR: "generated_images"
   BATCH_SIZE: 10
+
+IMAGEKIT:
+  PRIVATE_KEY: "your_private_key_here"
+  PUBLIC_KEY: "your_public_key_here"
+  URL_ENDPOINT: "your_url_endpoint_here"
 
 SCHEDULER:
   INTERVAL_MINUTES: 15
@@ -269,9 +277,9 @@ Articles are stored in MongoDB with this structure:
     "instagram": { "caption": "...", "hashtags": [] }
   },
   "images": {
-    "website": { "path": "generated_images/.../website_01.jpg" },
-    "telegram": { "path": "generated_images/.../telegram_01.jpg" },
-    "instagram": [{ "path": "..." }]
+    "website": { "url": "https://ik.imagekit.io/..." },
+    "telegram": { "url": "https://ik.imagekit.io/..." },
+    "instagram": [{ "url": "https://ik.imagekit.io/..." }]
   },
   "createdAt": "2024-01-02T10:15:00Z"
 }
@@ -285,6 +293,7 @@ Articles are stored in MongoDB with this structure:
 - **Pollinations.ai** - AI image generation
 - **MongoDB** - Database storage
 - **APScheduler** - Task scheduling
+- **ImageKit** - Cloud image storage & CDN
 
 ### Website
 - **Next.js 14** - React framework with App Router
