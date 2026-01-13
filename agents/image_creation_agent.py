@@ -6,7 +6,7 @@ Pipeline:
 1. Fetch processed articles from MongoDB
 2. Generate creative image prompts using LLM
 3. Create images via Pollinations.ai API
-4. Save images locally (AWS S3 integration later)
+4. Save images locally
 5. Update database with image paths
 """
 

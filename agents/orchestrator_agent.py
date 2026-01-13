@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from agents.scraper_agent import ScraperAgent
 from agents.content_curation_agent import ContentCurationAgent
 from agents.image_creation_agent import ImageCreationAgent
+from agents.article_ranking_agent import ArticleRankingAgent
 from database.mongodb import MongoDBManager
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ class OrchestratorAgent:
         # Pipeline stage handlers (will be populated as agents are added)
         self.pipeline_stages = {
             "scrape": self._run_scraper,
+            "rank": self._run_ranker,
             "curate": self._run_curator,
             "generate_image": self._run_image_generator,
             # "publish": self._run_publisher,   # Future
@@ -90,6 +92,25 @@ class OrchestratorAgent:
         except Exception as e:
             logger.error(f"Pipeline Stage: SCRAPE - Failed: {e}")
             return {"stage": "scrape", "success": False, "error": str(e)}
+    
+    def _run_ranker(self) -> Dict[str, Any]:
+        """Execute the article ranking agent."""
+        logger.info("Pipeline Stage: RANK - Starting")
+        try:
+            agent = ArticleRankingAgent(config_path=self.config_path)
+            result = agent.run()
+            agent.close()
+            
+            if not result["enabled"]:
+                logger.info("Pipeline Stage: RANK - Disabled in config, skipping")
+                return {"stage": "rank", "success": True, "result": result, "skipped": True}
+            
+            logger.info(f"Pipeline Stage: RANK - Complete. "
+                       f"Selected {result['selected']}, Filtered {result['filtered']}")
+            return {"stage": "rank", "success": True, "result": result}
+        except Exception as e:
+            logger.error(f"Pipeline Stage: RANK - Failed: {e}")
+            return {"stage": "rank", "success": False, "error": str(e)}
     
     def _run_curator(self) -> Dict[str, Any]:
         """Execute the content curation agent."""

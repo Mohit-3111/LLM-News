@@ -59,3 +59,10 @@ IMAGEKIT:
   PRIVATE_KEY: "your_private_key_here"
   PUBLIC_KEY: "your_public_key_here"
   URL_ENDPOINT: "your_url_endpoint_here"
+
+# Article Ranking Settings (LLM-based selection)
+# When enabled, selects only the best trending article from all fetched
+ARTICLE_RANKING:
+  ENABLED: true   # true = select best trending, false = process all articles
+  TOP_N: 1        # Number of best articles to keep (when enabled)
+
