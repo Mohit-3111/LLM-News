@@ -91,7 +91,36 @@ Visit: **http://localhost:3000**
 | `/api/articles` | GET | Fetch articles with pagination |
 | `/api/publish` | POST | Mark article as published |
 
-## 🚀 Quick Start
+## �️ Admin Dashboard
+
+A separate admin panel for monitoring and managing the news pipeline.
+
+### Features
+- 📊 **Stats Overview** - Article counts by status (raw, curated, processed, filtered, errors)
+- 📰 **Article Table** - View all articles with status, source, and timestamps
+- 🔗 **Dynamic Links** - Click to view processed articles on website or original source
+- 🔍 **Filter Tabs** - Filter articles by status
+- 🔄 **Auto-refresh** - Updates every 30 seconds
+
+### Running the Admin Dashboard
+
+```bash
+cd admin
+npm install
+npm run dev
+```
+
+Visit: **http://localhost:3001**
+
+### Configuration
+
+To change the website URL for article links, edit `admin/src/pages/index.js`:
+
+```javascript
+const WEBSITE_URL = 'https://your-website.vercel.app';
+```
+
+## �🚀 Quick Start
 
 ### Prerequisites
 
@@ -203,7 +232,13 @@ multiagent-llm-news/
 │   └── mongodb.py                 # MongoDB connection manager
 ├── utils/
 │   └── helpers.py                 # Utility functions
-└── website/                       # Next.js news website
+├── admin/                         # Admin Dashboard (Next.js)
+│   ├── src/
+│   │   ├── pages/                 # Dashboard pages & API routes
+│   │   ├── lib/                   # MongoDB connection
+│   │   └── styles/                # CSS styles
+│   └── package.json
+└── website/                       # News Website (Next.js)
     ├── src/
     │   ├── app/                   # Next.js App Router pages
     │   ├── components/            # React components
