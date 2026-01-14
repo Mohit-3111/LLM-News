@@ -706,8 +706,9 @@ PROMPT_3: [realistic photo description]"""
         
         logger.info(f"Image generation complete: {processed} processed, {failed} failed in {duration:.1f}s")
         
-        # Retry incomplete image sets from previous runs
-        if failed > 0 or processed > 0:
+        # Only retry incomplete image sets if there were actual failures this run
+        # This prevents redundant retries after successful runs
+        if failed > 0:
             retry_count = self.retry_failed_images()
             if retry_count > 0:
                 summary['retried'] = retry_count
@@ -717,18 +718,19 @@ PROMPT_3: [realistic photo description]"""
     def retry_failed_images(self) -> int:
         """
         Retry image generation for articles that have incomplete image sets.
-        This is called automatically at the end of each run cycle.
+        Only retries articles that have failed less than 3 times.
         
         Returns:
             Number of articles successfully retried
         """
-        logger.info("Checking for articles with incomplete images...")
+        MAX_RETRIES = 3
+        logger.info("Checking for articles with incomplete images (max 3 retries)...")
         
-        # Get articles that need image retry
+        # Get articles that need image retry (already filtered by retry count in DB query)
         incomplete_articles = self.db.get_articles_with_incomplete_images(limit=5)
         
         if not incomplete_articles:
-            logger.info("No articles with incomplete images found")
+            logger.info("No articles with incomplete images found (or all exceeded max retries)")
             return 0
         
         logger.info(f"Found {len(incomplete_articles)} articles with incomplete images, retrying...")
@@ -737,11 +739,16 @@ PROMPT_3: [realistic photo description]"""
         for article in incomplete_articles:
             article_id = str(article.get('_id', ''))
             title = article.get('title', 'Unknown')[:40]
+            retry_count = article.get('image_retry_count', 0)
             
-            # Reset article for retry
+            if retry_count >= MAX_RETRIES:
+                logger.warning(f"Skipping {title} - exceeded max retries ({retry_count}/{MAX_RETRIES})")
+                continue
+            
+            logger.info(f"Retrying {title} (attempt {retry_count + 1}/{MAX_RETRIES})")
+            
+            # Reset article for retry (this increments the retry count)
             if self.db.mark_article_for_image_retry(article_id):
-                logger.info(f"Marked article for retry: {title}")
-                
                 # Re-fetch the article and process
                 articles = self.db.get_articles_for_image_generation(limit=1)
                 if articles:
@@ -749,6 +756,8 @@ PROMPT_3: [realistic photo description]"""
                     if result:
                         retried += 1
                         logger.info(f"Successfully retried images for: {title}")
+                    else:
+                        logger.warning(f"Retry failed for: {title}")
         
         return retried
     

@@ -265,11 +265,14 @@ class MongoDBManager:
     
     def get_articles_with_incomplete_images(self, limit: int = 100) -> List[Dict[str, Any]]:
         """
-        Get articles that have incomplete image sets (some images failed to generate).
-        These articles have status 'processed' but are missing some image paths.
+        Get articles that have incomplete image sets (some images failed to generate)
+        AND have not exceeded the maximum retry count (3 retries per platform).
         """
         try:
-            # Find articles where images exist but some are None/missing
+            MAX_RETRIES = 3
+            # Find articles where:
+            # 1. Status is 'processed' but some images are missing
+            # 2. Retry count is less than MAX_RETRIES
             query = {
                 'status': 'processed',
                 'images': {'$exists': True},
@@ -277,7 +280,12 @@ class MongoDBManager:
                     {'images.website': None},
                     {'images.telegram': None},
                     {'images.instagram': {'$size': 0}},
-                    {'images.instagram': {'$elemMatch': {'path': None}}}
+                    {'images.instagram': {'$elemMatch': {'url': None}}}  # Fixed: was 'path'
+                ],
+                # Only retry if under max retry count
+                '$or': [
+                    {'image_retry_count': {'$exists': False}},
+                    {'image_retry_count': {'$lt': MAX_RETRIES}}
                 ]
             }
             articles = list(self.collection.find(query).limit(limit))
@@ -287,7 +295,7 @@ class MongoDBManager:
             return []
     
     def mark_article_for_image_retry(self, article_id: str) -> bool:
-        """Mark an article to be retried for image generation."""
+        """Mark an article to be retried for image generation and increment retry count."""
         try:
             from bson import ObjectId
             result = self.collection.update_one(
@@ -295,9 +303,9 @@ class MongoDBManager:
                 {
                     '$set': {
                         'status': 'curated',  # Reset to curated for image retry
-                        'image_retry': True,
                         'updatedAt': datetime.utcnow()
                     },
+                    '$inc': {'image_retry_count': 1},  # Increment retry count
                     '$unset': {'images': '', 'image_prompts': ''}  # Clear old image data
                 }
             )
@@ -305,5 +313,18 @@ class MongoDBManager:
         except PyMongoError as e:
             logger.error(f"Failed to mark article for image retry: {e}")
             return False
+    
+    def get_article_retry_count(self, article_id: str) -> int:
+        """Get the current retry count for an article."""
+        try:
+            from bson import ObjectId
+            article = self.collection.find_one(
+                {'_id': ObjectId(article_id)},
+                {'image_retry_count': 1}
+            )
+            return article.get('image_retry_count', 0) if article else 0
+        except PyMongoError as e:
+            logger.error(f"Failed to get retry count: {e}")
+            return 0
 
 
