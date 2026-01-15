@@ -69,3 +69,115 @@ export async function getArticlesCollection() {
     const { collectionName } = getMongoConfig();
     return db.collection(collectionName);
 }
+
+/**
+ * Get the pageviews collection for analytics.
+ */
+export async function getPageviewsCollection() {
+    const db = await getDatabase();
+    return db.collection('pageviews');
+}
+
+/**
+ * Get analytics data for the dashboard.
+ * 
+ * New data structure: One document per article with:
+ * - articleId, title, count, timestamps[]
+ * 
+ * @param {number} days - Number of days to look back (default: 7)
+ */
+export async function getAnalyticsData(days = 7) {
+    const db = await getDatabase();
+    const pageviews = db.collection('pageviews');
+    const articles = db.collection('articles');
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startDateISO = startDate.toISOString();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayISO = todayStart.toISOString();
+
+    // Get all tracked articles
+    const allArticles = await pageviews.find({}).toArray();
+
+    // Calculate total views (sum of all counts)
+    const totalViews = allArticles.reduce((sum, a) => sum + (a.count || 0), 0);
+
+    // Calculate views in date range (count timestamps within range)
+    let recentViews = 0;
+    let todayViews = 0;
+    const dailyViewsMap = {};
+
+    allArticles.forEach(article => {
+        const timestamps = article.timestamps || [];
+        timestamps.forEach(ts => {
+            if (ts >= startDateISO) {
+                recentViews++;
+                const dateKey = ts.split('T')[0];
+                dailyViewsMap[dateKey] = (dailyViewsMap[dateKey] || 0) + 1;
+            }
+            if (ts >= todayISO) {
+                todayViews++;
+            }
+        });
+    });
+
+    // Convert daily views map to sorted array
+    const dailyViews = Object.entries(dailyViewsMap)
+        .map(([date, views]) => ({ date, views }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Top articles by total count (already sorted by count)
+    const topArticles = allArticles
+        .sort((a, b) => (b.count || 0) - (a.count || 0))
+        .slice(0, 10);
+
+    // Enrich top articles with source from articles collection
+    const enrichedTopArticles = await Promise.all(
+        topArticles.map(async (item) => {
+            try {
+                const { ObjectId } = await import('mongodb');
+                if (item.articleId && ObjectId.isValid(item.articleId)) {
+                    const article = await articles.findOne({ _id: new ObjectId(item.articleId) });
+                    return {
+                        _id: item.articleId,
+                        title: article?.title || item.title || 'Unknown',
+                        source: article?.source?.name || article?.source || 'Unknown',
+                        views: item.count || 0
+                    };
+                }
+            } catch (e) {
+                // Ignore errors
+            }
+            return {
+                _id: item.articleId,
+                title: item.title || 'Unknown',
+                source: 'Unknown',
+                views: item.count || 0
+            };
+        })
+    );
+
+    // Views by source
+    const sourceCountMap = {};
+    for (const item of enrichedTopArticles) {
+        const source = item.source || 'Unknown';
+        sourceCountMap[source] = (sourceCountMap[source] || 0) + item.views;
+    }
+    const viewsBySource = Object.entries(sourceCountMap)
+        .map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count);
+
+    return {
+        totalViews,
+        recentViews,
+        todayViews,
+        dailyViews,
+        topArticles: enrichedTopArticles,
+        viewsBySource,
+        uniqueArticlesViewed: allArticles.length,
+        avgDailyViews: days > 0 ? Math.round(recentViews / days * 10) / 10 : 0
+    };
+}
+

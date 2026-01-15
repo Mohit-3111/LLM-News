@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fetchArticleById, fetchArticles } from '@/lib/mongodb';
+import ArticleAnalytics from '@/components/ArticleAnalytics';
 
 // Revalidate every 5 minutes
 export const revalidate = 300;
@@ -135,6 +136,9 @@ export default async function ArticlePage({ params }) {
 
     return (
         <article className="article-page">
+            {/* Analytics Tracking */}
+            <ArticleAnalytics articleId={id} title={title} />
+
             <div className="container">
                 {/* Hero Image */}
                 {imageSrc && (
@@ -176,7 +180,7 @@ export default async function ArticlePage({ params }) {
                 {/* Article Content */}
                 <div className="article-content animate-fade-in-up">
                     {content.split('\n\n').map((paragraph, index) => {
-                        // Check if it's a heading (starts with # or is short and ends with :)
+                        // Check if it's a heading
                         if (paragraph.startsWith('## ')) {
                             return <h2 key={index}>{paragraph.replace('## ', '')}</h2>;
                         }

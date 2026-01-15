@@ -104,9 +104,14 @@ export default function AdminDashboard() {
           <h1 className="dashboard-title">
             <span>🛠️</span> Admin Dashboard
           </h1>
-          <a href={WEBSITE_URL} className="back-link" target="_blank" rel="noopener">
-            ← Back to Website
-          </a>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <a href="/analytics" className="nav-link-btn">
+              📊 Analytics
+            </a>
+            <a href={WEBSITE_URL} className="back-link" target="_blank" rel="noopener">
+              ← Back to Website
+            </a>
+          </div>
         </header>
 
         {loading ? (
