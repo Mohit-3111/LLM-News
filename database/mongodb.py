@@ -326,5 +326,140 @@ class MongoDBManager:
         except PyMongoError as e:
             logger.error(f"Failed to get retry count: {e}")
             return 0
+    
+    # ==================== Telegram Subscriber Methods ====================
+    
+    def _get_subscribers_collection(self):
+        """Get the telegram_subscribers collection."""
+        return self.db['telegram_subscribers']
+    
+    def add_telegram_subscriber(self, chat_id: int, username: str) -> bool:
+        """
+        Add a new Telegram subscriber.
+        
+        Args:
+            chat_id: Telegram chat ID
+            username: Telegram username or display name
+            
+        Returns:
+            True if added, False if already exists
+        """
+        try:
+            subscribers = self._get_subscribers_collection()
+            
+            # Check if already subscribed
+            existing = subscribers.find_one({'chat_id': chat_id})
+            if existing:
+                logger.debug(f"Subscriber {chat_id} already exists")
+                return False
+            
+            # Add new subscriber
+            subscribers.insert_one({
+                'chat_id': chat_id,
+                'username': username,
+                'subscribed_at': datetime.utcnow(),
+                'active': True
+            })
+            
+            logger.info(f"Added Telegram subscriber: {username} ({chat_id})")
+            return True
+            
+        except PyMongoError as e:
+            logger.error(f"Failed to add subscriber: {e}")
+            return False
+    
+    def remove_telegram_subscriber(self, chat_id: int) -> bool:
+        """
+        Remove a Telegram subscriber.
+        
+        Args:
+            chat_id: Telegram chat ID
+            
+        Returns:
+            True if removed, False if not found
+        """
+        try:
+            subscribers = self._get_subscribers_collection()
+            result = subscribers.delete_one({'chat_id': chat_id})
+            
+            if result.deleted_count > 0:
+                logger.info(f"Removed Telegram subscriber: {chat_id}")
+                return True
+            return False
+            
+        except PyMongoError as e:
+            logger.error(f"Failed to remove subscriber: {e}")
+            return False
+    
+    def is_telegram_subscriber(self, chat_id: int) -> bool:
+        """Check if a chat_id is subscribed."""
+        try:
+            subscribers = self._get_subscribers_collection()
+            existing = subscribers.find_one({'chat_id': chat_id, 'active': True})
+            return existing is not None
+        except PyMongoError as e:
+            logger.error(f"Failed to check subscriber: {e}")
+            return False
+    
+    def get_all_telegram_subscribers(self) -> List[Dict[str, Any]]:
+        """Get all active Telegram subscribers."""
+        try:
+            subscribers = self._get_subscribers_collection()
+            return list(subscribers.find({'active': True}))
+        except PyMongoError as e:
+            logger.error(f"Failed to fetch subscribers: {e}")
+            return []
+    
+    def get_telegram_subscriber_count(self) -> int:
+        """Get count of active subscribers."""
+        try:
+            subscribers = self._get_subscribers_collection()
+            return subscribers.count_documents({'active': True})
+        except PyMongoError as e:
+            logger.error(f"Failed to count subscribers: {e}")
+            return 0
+    
+    # ==================== Telegram Broadcast Methods ====================
+    
+    def get_articles_to_broadcast(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Get processed articles that haven't been broadcast to Telegram yet.
+        
+        Returns articles with status 'processed' and no telegram_broadcast field.
+        """
+        try:
+            query = {
+                'status': 'processed',
+                'telegram_broadcast': {'$ne': True}
+            }
+            articles = list(self.collection.find(query).sort('processed_at', -1).limit(limit))
+            return articles
+        except PyMongoError as e:
+            logger.error(f"Failed to fetch articles for broadcast: {e}")
+            return []
+    
+    def mark_article_broadcasted(self, article_id: str) -> bool:
+        """
+        Mark an article as broadcast to Telegram.
+        
+        Args:
+            article_id: MongoDB ObjectId string
+            
+        Returns:
+            True if marked successfully
+        """
+        try:
+            from bson import ObjectId
+            result = self.collection.update_one(
+                {'_id': ObjectId(article_id)},
+                {'$set': {
+                    'telegram_broadcast': True,
+                    'telegram_broadcast_at': datetime.utcnow()
+                }}
+            )
+            return result.modified_count > 0
+        except PyMongoError as e:
+            logger.error(f"Failed to mark article as broadcasted: {e}")
+            return False
 
 

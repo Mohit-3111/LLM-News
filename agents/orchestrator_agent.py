@@ -20,6 +20,7 @@ from agents.scraper_agent import ScraperAgent
 from agents.content_curation_agent import ContentCurationAgent
 from agents.image_creation_agent import ImageCreationAgent
 from agents.article_ranking_agent import ArticleRankingAgent
+from agents.telegram_bot_agent import TelegramBotAgent
 from database.mongodb import MongoDBManager
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ class OrchestratorAgent:
             "rank": self._run_ranker,
             "curate": self._run_curator,
             "generate_image": self._run_image_generator,
-            # "publish": self._run_publisher,   # Future
+            "telegram_broadcast": self._run_telegram_broadcaster,
         }
         
     def _load_config(self, config_path: str) -> Dict[str, Any]:
@@ -153,6 +154,28 @@ class OrchestratorAgent:
         except Exception as e:
             logger.error(f"Pipeline Stage: GENERATE_IMAGE - Failed: {e}")
             return {"stage": "generate_image", "success": False, "error": str(e)}
+    
+    def _run_telegram_broadcaster(self) -> Dict[str, Any]:
+        """Execute the Telegram broadcast agent."""
+        logger.info("Pipeline Stage: TELEGRAM_BROADCAST - Starting")
+        try:
+            telegram_config = self.config.get("TELEGRAM", {})
+            
+            # Check if Telegram is enabled
+            if not telegram_config.get("ENABLED", False):
+                logger.info("Pipeline Stage: TELEGRAM_BROADCAST - Disabled in config")
+                return {"stage": "telegram_broadcast", "success": True, "result": {"skipped": True}}
+            
+            agent = TelegramBotAgent(config_path=self.config_path)
+            result = agent.run()
+            agent.close()
+            
+            logger.info(f"Pipeline Stage: TELEGRAM_BROADCAST - Complete. "
+                       f"Articles: {result['articles_broadcast']}, Sent: {result['total_sent']}")
+            return {"stage": "telegram_broadcast", "success": True, "result": result}
+        except Exception as e:
+            logger.error(f"Pipeline Stage: TELEGRAM_BROADCAST - Failed: {e}")
+            return {"stage": "telegram_broadcast", "success": False, "error": str(e)}
     
     def run_pipeline(self) -> Dict[str, Any]:
         """

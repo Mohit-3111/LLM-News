@@ -52,6 +52,7 @@ An intelligent, automated news curation system powered by multiple specialized A
 | **Orchestrator Agent** | ✅ Complete | Schedules and coordinates pipeline execution |
 | **Curation Agent** | ✅ Complete | LLM-powered summarization, rewriting, and entity extraction |
 | **Image Agent** | ✅ Complete | AI image generation using Pollinations.ai (turbo model) |
+| **Telegram Bot Agent** | ✅ Complete | Subscriber management and news broadcasting |
 | **Publisher Agent** | ✅ Complete | Next.js website for publishing articles |
 
 ## 🌐 Website (LLM Daily)
@@ -90,8 +91,62 @@ Visit: **http://localhost:3000**
 |----------|--------|-------------|
 | `/api/articles` | GET | Fetch articles with pagination |
 | `/api/publish` | POST | Mark article as published |
+| `/api/track` | POST/GET | Track article views for analytics |
 
-## �️ Admin Dashboard
+## 📊 Analytics
+
+The platform includes built-in analytics tracking:
+
+### Website Analytics
+- **Page View Tracking** - Automatic tracking of article views
+- **View History** - Timestamps stored for each view
+- **Real-time Data** - Stored in MongoDB `pageviews` collection
+
+### Admin Analytics Dashboard
+Access at: **http://localhost:3001/analytics**
+
+- 📈 **Charts** - Bar and pie charts showing article performance
+- 🏆 **Top Articles** - Ranked by view count
+- 📅 **Time Trends** - View patterns over time
+- 🔄 **Auto-refresh** - Updates every 30 seconds
+
+## 🤖 Telegram Bot
+
+Automatic news broadcasting to Telegram subscribers.
+
+### Features
+- 📲 **Subscribe/Unsubscribe** - `/start` and `/stop` commands
+- 📰 **Auto-broadcast** - News sent when pipeline completes
+- 🖼️ **Rich Messages** - Includes images and article links
+- 📊 **Subscriber Management** - Stored in MongoDB
+
+### Setup
+
+1. **Create bot** via [@BotFather](https://t.me/BotFather) on Telegram
+2. **Update config.yaml**:
+   ```yaml
+   TELEGRAM:
+     BOT_TOKEN: "your_bot_token"
+     ENABLED: true
+     WEBSITE_URL: "https://your-site.vercel.app"
+   ```
+
+### Running the Bot
+
+```bash
+# Start bot to accept subscriptions
+python agents/telegram_bot_agent.py
+
+# Or run full pipeline (auto-broadcasts to subscribers)
+python main.py --run-once
+```
+
+### Bot Commands
+| Command | Description |
+|---------|-------------|
+| `/start` | Subscribe to news updates |
+| `/stop` | Unsubscribe from updates |
+| `/status` | Check subscription status |
 
 A separate admin panel for monitoring and managing the news pipeline.
 
@@ -132,6 +187,7 @@ const WEBSITE_URL = 'https://your-website.vercel.app';
   - [GNews](https://gnews.io/) (free tier available)
   - [Groq](https://console.groq.com/) (free tier for LLM - required for curation)
   - [ImageKit](https://imagekit.io/) (free tier: 20GB storage/bandwidth - for image hosting)
+  - [Telegram Bot Token](https://t.me/BotFather) (optional - for Telegram broadcasting)
 
 ### Installation
 
@@ -227,7 +283,9 @@ multiagent-llm-news/
 │   ├── scraper_agent.py           # News fetching agent
 │   ├── orchestrator_agent.py      # Pipeline scheduler
 │   ├── content_curation_agent.py  # LLM summarization & rewriting
-│   └── image_creation_agent.py    # AI image generation
+│   ├── image_creation_agent.py    # AI image generation
+│   ├── article_ranking_agent.py   # LLM-based article selection
+│   └── telegram_bot_agent.py      # Telegram subscriber & broadcast
 ├── database/
 │   └── mongodb.py                 # MongoDB connection manager
 ├── utils/
@@ -342,13 +400,9 @@ Articles are stored in MongoDB with this structure:
 - [x] Content Curation Agent (Groq LLM - summarization, rewriting, entity extraction)
 - [x] Image Generation Agent (Pollinations.ai - turbo model)
 - [x] News Website (Next.js with modern UI)
-- [ ] Telegram Bot Integration
+- [x] Telegram Bot Integration
 - [ ] Instagram Auto-Posting
-- [ ] Web Dashboard for Analytics
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
+- [x] Web Analytics Dashboard
 
 ## 🤝 Contributing
 
