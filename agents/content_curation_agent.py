@@ -134,7 +134,7 @@ class ContentCurationAgent:
             return {'summary': '', 'rewritten_content': ''}
         
         # Truncate content if too long (to stay within token limits)
-        content = content[:4000]
+        content = content[:7000]
         
         system_prompt = """You are a professional news editor. Your task is to:
 1. Summarize the article in 2-3 sentences
