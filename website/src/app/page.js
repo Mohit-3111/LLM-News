@@ -2,8 +2,8 @@ import HeroSection from '@/components/HeroSection';
 import NewsGrid from '@/components/NewsGrid';
 import { fetchArticles } from '@/lib/mongodb';
 
-// Revalidate every 5 minutes to show fresh content
-export const revalidate = 300;
+// Revalidate every 60 seconds to show fresh content
+export const revalidate = 60;
 
 export default async function HomePage() {
   let articles = [];

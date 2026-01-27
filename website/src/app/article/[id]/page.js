@@ -4,8 +4,8 @@ import { notFound } from 'next/navigation';
 import { fetchArticleById, fetchArticles } from '@/lib/mongodb';
 import ArticleAnalytics from '@/components/ArticleAnalytics';
 
-// Revalidate every 5 minutes
-export const revalidate = 300;
+// Revalidate every 60 seconds
+export const revalidate = 60;
 
 /**
  * Generate metadata for the article page.
