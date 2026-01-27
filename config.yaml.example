@@ -66,7 +66,11 @@ ARTICLE_RANKING:
   ENABLED: true   # true = select best trending, false = process all articles
   TOP_N: 1        # Number of best articles to keep (when enabled)
 
+# Telegram Bot Configuration
+# Get your bot token from @BotFather on Telegram
+# For channel mode: Create a channel, add bot as admin with "Post messages" permission
 TELEGRAM:
-  BOT_TOKEN: "your_bot_token_here"
+  BOT_TOKEN: "your_bot_token_here"  # Get from @BotFather
   ENABLED: true
   WEBSITE_URL: "your_website_url_here"  # For article links
+  CHANNEL_ID: "@your_channel"  # Channel to post news (leave empty for subscriber mode)

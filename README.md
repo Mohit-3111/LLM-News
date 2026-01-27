@@ -112,36 +112,50 @@ Access at: **http://localhost:3001/analytics**
 
 ## 🤖 Telegram Bot
 
-Automatic news broadcasting to Telegram subscribers.
+Automatic news broadcasting to Telegram channel or individual subscribers.
 
 ### Features
-- 📲 **Subscribe/Unsubscribe** - `/start` and `/stop` commands
+- 📢 **Channel Mode** - Post to a public/private channel (recommended)
+- 📲 **Subscriber Mode** - Direct messages via `/start` command (fallback)
 - 📰 **Auto-broadcast** - News sent when pipeline completes
-- 🖼️ **Rich Messages** - Includes images and article links
-- 📊 **Subscriber Management** - Stored in MongoDB
+- 🖼️ **Rich Messages** - Includes AI-generated images and article links
 
-### Setup
+### Setup (Channel Mode - Recommended)
 
-1. **Create bot** via [@BotFather](https://t.me/BotFather) on Telegram
-2. **Update config.yaml**:
+1. **Create a Telegram channel** (e.g., "AI Wired")
+2. **Create bot** via [@BotFather](https://t.me/BotFather)
+3. **Add bot as admin** to your channel with "Post messages" permission
+4. **Update config.yaml**:
    ```yaml
    TELEGRAM:
      BOT_TOKEN: "your_bot_token"
      ENABLED: true
      WEBSITE_URL: "https://your-site.vercel.app"
+     CHANNEL_ID: "@your_channel"  # Your channel username
    ```
+
+### Setup (Subscriber Mode)
+
+Leave `CHANNEL_ID` empty to use individual subscriber mode:
+```yaml
+TELEGRAM:
+  CHANNEL_ID: ""  # Empty = subscriber mode
+```
 
 ### Running the Bot
 
 ```bash
-# Start bot to accept subscriptions
-python agents/telegram_bot_agent.py
+# Run full pipeline (auto-broadcasts to channel/subscribers)
+python main.py
 
-# Or run full pipeline (auto-broadcasts to subscribers)
-python main.py --run-once
+# Or broadcast pending articles manually
+python agents/telegram_bot_agent.py --broadcast
+
+# Start bot for /start, /stop commands (subscriber mode only)
+python agents/telegram_bot_agent.py
 ```
 
-### Bot Commands
+### Bot Commands (Subscriber Mode)
 | Command | Description |
 |---------|-------------|
 | `/start` | Subscribe to news updates |

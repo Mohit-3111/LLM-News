@@ -53,10 +53,15 @@ class TelegramBotAgent:
         self.bot_token = telegram_config.get('BOT_TOKEN', '')
         self.enabled = telegram_config.get('ENABLED', False)
         self.website_url = telegram_config.get('WEBSITE_URL', 'https://llm-news-nu.vercel.app')
+        self.channel_id = telegram_config.get('CHANNEL_ID', '')  # Channel to post to
         
         if not self.bot_token or self.bot_token == 'your_bot_token_here':
             logger.warning("Telegram bot token not configured")
             self.enabled = False
+        
+        # Log channel mode if configured
+        if self.channel_id:
+            logger.info(f"Channel mode enabled: posting to {self.channel_id}")
         
         self.bot = None
         self.application = None
@@ -163,7 +168,10 @@ class TelegramBotAgent:
     
     async def broadcast_article(self, article: Dict) -> Dict[str, int]:
         """
-        Broadcast a single article to all subscribers.
+        Broadcast a single article to channel (preferred) or subscribers.
+        
+        If CHANNEL_ID is configured, posts to the channel.
+        Otherwise, falls back to individual subscriber broadcasting.
         
         Args:
             article: Article dictionary from database
@@ -201,52 +209,72 @@ class TelegramBotAgent:
         # Format message
         message = f"📰 *{title}*\n\n{teaser}\n\n🔗 [Read more]({article_link})"
         
-        # Get all subscribers
-        subscribers = self.db.get_all_telegram_subscribers()
-        
-        if not subscribers:
-            logger.info("No subscribers to broadcast to")
-            return {'sent': 0, 'failed': 0}
-        
-        logger.info(f"Broadcasting article to {len(subscribers)} subscribers")
+        # Initialize bot for sending
+        bot = Bot(token=self.bot_token)
         
         sent = 0
         failed = 0
         
-        # Initialize bot for sending
-        bot = Bot(token=self.bot_token)
-        
-        for subscriber in subscribers:
-            chat_id = subscriber.get('chat_id')
-            if not chat_id:
-                continue
-            
+        # CHANNEL MODE: Post to channel if configured
+        if self.channel_id:
+            logger.info(f"Posting article to channel: {self.channel_id}")
             try:
                 if image_url:
-                    # Send with image
                     await bot.send_photo(
-                        chat_id=chat_id,
+                        chat_id=self.channel_id,
                         photo=image_url,
                         caption=message,
                         parse_mode=ParseMode.MARKDOWN
                     )
                 else:
-                    # Send text only
                     await bot.send_message(
-                        chat_id=chat_id,
+                        chat_id=self.channel_id,
                         text=message,
                         parse_mode=ParseMode.MARKDOWN,
                         disable_web_page_preview=False
                     )
-                sent += 1
-                logger.debug(f"Sent to {chat_id}")
-                
-                # Small delay to avoid rate limits
-                await asyncio.sleep(0.1)
-                
+                sent = 1
+                logger.info(f"Successfully posted to channel {self.channel_id}")
             except Exception as e:
-                logger.error(f"Failed to send to {chat_id}: {e}")
-                failed += 1
+                logger.error(f"Failed to post to channel {self.channel_id}: {e}")
+                failed = 1
+        
+        # SUBSCRIBER MODE: Fallback to individual subscribers
+        else:
+            subscribers = self.db.get_all_telegram_subscribers()
+            
+            if not subscribers:
+                logger.info("No subscribers to broadcast to")
+                return {'sent': 0, 'failed': 0}
+            
+            logger.info(f"Broadcasting article to {len(subscribers)} subscribers")
+            
+            for subscriber in subscribers:
+                chat_id = subscriber.get('chat_id')
+                if not chat_id:
+                    continue
+                
+                try:
+                    if image_url:
+                        await bot.send_photo(
+                            chat_id=chat_id,
+                            photo=image_url,
+                            caption=message,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                    else:
+                        await bot.send_message(
+                            chat_id=chat_id,
+                            text=message,
+                            parse_mode=ParseMode.MARKDOWN,
+                            disable_web_page_preview=False
+                        )
+                    sent += 1
+                    logger.debug(f"Sent to {chat_id}")
+                    await asyncio.sleep(0.1)  # Rate limit delay
+                except Exception as e:
+                    logger.error(f"Failed to send to {chat_id}: {e}")
+                    failed += 1
         
         # Mark article as broadcasted
         self.db.mark_article_broadcasted(article_id)
